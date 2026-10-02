@@ -149,8 +149,20 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   int _viewingYear = 2083;
   int _yearRangeStart = 2076;
 
-  /// Lets async work (BS month loading) refresh an open dialog.
+  /// Refreshes the currently open calendar dialog.
+  ///
+  /// This callback is cleared as soon as the dialog closes so async
+  /// calendar requests cannot update an already-disposed dialog.
   VoidCallback? _dialogRefresh;
+  bool _dialogOpen = false;
+
+  /// Context of the open dialog route.
+  ///
+  /// `showDialog` pushes onto the ROOT navigator, while this widget's own
+  /// [context] may belong to a nested navigator (go_router ShellRoute).
+  /// Popping with this context always closes the dialog itself instead of
+  /// accidentally popping the host screen.
+  BuildContext? _dialogContext;
 
   static const _weekdayNepaliNames = [
     'आइत',
@@ -231,8 +243,18 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
   @override
   void dispose() {
-    if (_serviceOwned) _service.dispose();
-    if (_adServiceOwned) _adService.dispose();
+    _dialogOpen = false;
+    _dialogRefresh = null;
+    _dialogContext = null;
+
+    if (_serviceOwned) {
+      _service.dispose();
+    }
+
+    if (_adServiceOwned) {
+      _adService.dispose();
+    }
+
     super.dispose();
   }
 
@@ -262,15 +284,24 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     required bool selectToday,
     VoidCallback? refresh,
   }) async {
+    if (!mounted) return;
+
     _loading = true;
     _error = null;
 
     var pos = _parseBs(_selectedBs) ?? _parseBs(widget.initialBsDate);
+
     if (pos == null) {
       try {
         final today = await _service.getToday();
+
         if (!mounted) return;
-        pos = [today.bsYear, today.bsMonth];
+
+        pos = [
+          today.bsYear,
+          today.bsMonth,
+        ];
+
         if (selectToday && _selectedBs == null) {
           setState(() {
             _selectedBs = today.bsDate;
@@ -278,54 +309,101 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
           });
         }
       } catch (_) {
+        if (!mounted) return;
+
         pos = [2083, 6];
       }
     }
-    _year = pos[0];
-    _month = pos[1];
-    _viewingYear = _year;
-    _yearRangeStart = (_year ~/ 12) * 12;
+
+    if (!mounted) return;
+
+    setState(() {
+      _year = pos![0];
+      _month = pos[1];
+      _viewingYear = _year;
+      _yearRangeStart = (_year ~/ 12) * 12;
+    });
+
+    if (!mounted) return;
+
     await _loadMonth(refresh);
   }
 
   // ── BS data loading ─────────────────────────────────────────────────
 
   Future<void> _loadMonth([VoidCallback? refreshDialog]) async {
-    void refresh() => (refreshDialog ?? _dialogRefresh)?.call();
+    void refreshDialogSafely() {
+      if (!_dialogOpen || !mounted) return;
+
+      refreshDialog?.call();
+    }
+
+    if (!mounted) return;
 
     setState(() {
       _loading = true;
       _error = null;
     });
-    refresh();
+
+    refreshDialogSafely();
 
     try {
-      final month = await _service.getMonth(year: _year, month: _month);
+      final month = await _service.getMonth(
+        year: _year,
+        month: _month,
+      );
+
+      // The date picker may have been removed while the API was loading.
       if (!mounted) return;
-      setState(() => _calendar = month);
-      refresh();
+
+      setState(() {
+        _calendar = month;
+      });
+
+      refreshDialogSafely();
+
+      if (!mounted) return;
+
       _selectInitialDayIfNeeded();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
-      refresh();
+
+      setState(() {
+        _error = e.toString();
+      });
+
+      refreshDialogSafely();
     } finally {
-      if (mounted) setState(() => _loading = false);
-      refresh();
+      // No `return` inside finally (it can swallow exceptions).
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+
+        refreshDialogSafely();
+      }
     }
   }
 
   void _selectInitialDayIfNeeded() {
-    if (_selectedBs != null || widget.initialBsDate == null) return;
-    final match = _calendar?.dates
-        .where((d) => d.bsDate == widget.initialBsDate)
-        .firstOrNull;
-    if (match != null) {
-      setState(() {
-        _selectedBs = match.bsDate;
-        _selectedAd = match.adDate;
-      });
+    if (!mounted) return;
+
+    if (_selectedBs != null || widget.initialBsDate == null) {
+      return;
     }
+
+    final match = _calendar?.dates
+        .where(
+          (d) => d.bsDate == widget.initialBsDate,
+        )
+        .firstOrNull;
+
+    if (match == null || !mounted) return;
+
+    setState(() {
+      _selectedBs = match.bsDate;
+      _selectedAd = match.adDate;
+    });
   }
 
   void _goToMonth(int year, int month, VoidCallback refreshDialog) {
@@ -340,60 +418,129 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
   // ── AD → BS conversion ──────────────────────────────────────────────
 
-  Future<void> _convertAndSelect(DateTime ad, {required bool announce}) async {
-    setState(() => _converting = true);
+  Future<void> _convertAndSelect(
+    DateTime ad, {
+    required bool announce,
+  }) async {
+    if (!mounted) return;
+
+    setState(() {
+      _converting = true;
+    });
+
     try {
       final r = await _adService.convert(ad);
+
       if (!mounted) return;
+
       setState(() {
         _selectedBs = r.bsDate;
         _selectedAd = r.adDate;
       });
-      if (announce) _emit();
+
+      if (!mounted) return;
+
+      if (announce) {
+        _emit();
+      }
     } catch (e) {
       if (!mounted) return;
+
       if (announce) {
-        ScaffoldMessenger.maybeOf(
-          context,
-        )?.showSnackBar(SnackBar(content: Text('Could not convert date: $e')));
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not convert date: $e',
+            ),
+          ),
+        );
       }
     } finally {
-      if (mounted) setState(() => _converting = false);
+      // No `return` inside finally (it can swallow exceptions).
+      if (mounted) {
+        setState(() {
+          _converting = false;
+        });
+      }
     }
   }
 
   // ── Dialog ──────────────────────────────────────────────────────────
 
   Future<void> _openCalendar() async {
-    if (_converting) return;
+    if (!mounted || _converting) return;
 
     _mode = widget.displayFormat.calendarMode;
     _view = _DialogView.day;
+
     _syncPosition(_mode);
+
+    _dialogOpen = true;
+
     if (_mode == CalendarMode.bs && _calendar == null && !_loading) {
       _bootstrapBs(selectToday: false);
     }
 
-    await showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: StatefulBuilder(
-              builder: (context, setDialogState) {
-                _dialogRefresh = () => setDialogState(() {});
-                return _calendarBody(_dialogRefresh!);
-              },
+    bool dialogMounted = true;
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogCtx) {
+          // Remember the dialog's own context so we can close the correct
+          // route later, whichever navigator it was pushed on.
+          _dialogContext = dialogCtx;
+
+          return Dialog(
+            insetPadding: const EdgeInsets.all(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-        ),
-      ),
-    );
-    _dialogRefresh = null;
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 400,
+                maxHeight: 560,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: StatefulBuilder(
+                  builder: (dialogContext, setDialogState) {
+                    if (!dialogMounted) {
+                      return const SizedBox.shrink();
+                    }
+
+                    _dialogRefresh = () {
+                      if (!dialogMounted) return;
+                      if (!_dialogOpen) return;
+                      if (!mounted) return;
+
+                      setDialogState(() {});
+                    };
+
+                    return _calendarBody(_dialogRefresh!);
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    } finally {
+      // Prevent any pending async operation from refreshing
+      // the already-closed dialog.
+      dialogMounted = false;
+      _dialogOpen = false;
+      _dialogRefresh = null;
+      _dialogContext = null;
+    }
+  }
+
+  /// Closes the calendar dialog using the dialog's own context.
+  void _closeDialog() {
+    final ctx = _dialogContext;
+    if (ctx != null && ctx.mounted) {
+      Navigator.of(ctx).pop();
+    }
   }
 
   /// Moves the target calendar to the month of the current selection.
@@ -422,25 +569,43 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     });
 
     if (mode == CalendarMode.ad) {
-      setState(() => _syncPosition(CalendarMode.ad));
+      _syncPosition(CalendarMode.ad);
     } else if (_calendar == null && !_loading) {
-      _bootstrapBs(selectToday: false, refresh: refresh);
+      _bootstrapBs(
+        selectToday: false,
+        refresh: refresh,
+      );
     } else {
       final bs = _parseBs(_selectedBs);
+
       if (bs != null && (bs[0] != _year || bs[1] != _month)) {
-        _goToMonth(bs[0], bs[1], refresh);
+        _goToMonth(
+          bs[0],
+          bs[1],
+          refresh,
+        );
       }
     }
+
     refresh();
   }
 
   Future<void> _selectTime() async {
+    if (!mounted) return;
+
     final picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
-    if (picked == null) return;
-    setState(() => _selectedTime = picked);
+
+    if (!mounted || picked == null) return;
+
+    setState(() {
+      _selectedTime = picked;
+    });
+
+    if (!mounted) return;
+
     _emit();
   }
 
@@ -453,13 +618,13 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       _selectedAd = day.adDate;
     });
     _emit();
-    Navigator.of(context).pop();
+    _closeDialog();
   }
 
   /// AD day tapped → close dialog, resolve BS through the API.
   void _selectAdDay(DateTime date) {
     if (_isAdDisabled(date)) return;
-    Navigator.of(context).pop();
+    _closeDialog();
     _convertAndSelect(date, announce: true);
   }
 
@@ -969,8 +1134,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         return _dayTile(
           primary: '${date.day}',
           selected: _selectedAd == iso,
-          today:
-              date.year == now.year &&
+          today: date.year == now.year &&
               date.month == now.month &&
               date.day == now.day,
           disabled: _isAdDisabled(date),
@@ -995,9 +1159,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       isRedDay: day.adDateTime.weekday == DateTime.saturday || isHoliday,
       bold: isHoliday,
       onTap: () => _selectBsDay(day),
-      onLongPress: !disabled && day.hasEvents
-          ? () => _showEventsSheet(day)
-          : null,
+      onLongPress:
+          !disabled && day.hasEvents ? () => _showEventsSheet(day) : null,
     );
   }
 
@@ -1045,10 +1208,10 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                     color: disabled
                         ? cs.onSurface.withValues(alpha: 0.38)
                         : selected
-                        ? cs.onPrimary
-                        : isRedDay
-                        ? cs.error
-                        : null,
+                            ? cs.onPrimary
+                            : isRedDay
+                                ? cs.error
+                                : null,
                     fontWeight: today || selected || bold
                         ? FontWeight.w600
                         : FontWeight.w400,
@@ -1069,8 +1232,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                       color: disabled
                           ? cs.onSurface.withValues(alpha: 0.3)
                           : isRedDay
-                          ? cs.error.withValues(alpha: 0.8)
-                          : cs.onSurfaceVariant,
+                              ? cs.error.withValues(alpha: 0.8)
+                              : cs.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -1084,13 +1247,14 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   /// Bottom sheet with events (long-press on a BS day).
   void _showEventsSheet(NepaliCalendarDay day) {
     final cs = Theme.of(context).colorScheme;
-    final dateLabel =
-        '${day.unicodeBsDay ?? _toNepali(day.bsDay)} '
+    final dateLabel = '${day.unicodeBsDay ?? _toNepali(day.bsDay)} '
         '${day.unicodeMonthName ?? day.monthName} '
         '${day.unicodeBsYear ?? _toNepali(day.bsYear)}';
 
     showModalBottomSheet<void>(
-      context: context,
+      // Use the dialog's context so the sheet is pushed on the same
+      // (root) navigator as the dialog and appears above it, not behind.
+      context: _dialogContext ?? context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1116,12 +1280,16 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                 const SizedBox(height: 16),
                 Text(
                   dateLabel,
-                  style: Theme.of(ctx).textTheme.titleMedium
+                  style: Theme.of(ctx)
+                      .textTheme
+                      .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 Text(
                   '${day.bsDate}  •  ${day.adDate}',
-                  style: Theme.of(ctx).textTheme.bodySmall
+                  style: Theme.of(ctx)
+                      .textTheme
+                      .bodySmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
@@ -1180,6 +1348,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: () {
+                    // Close the sheet with its own context, then select
+                    // (which closes the dialog via _closeDialog).
                     Navigator.of(ctx).pop();
                     _selectBsDay(day);
                   },
@@ -1237,9 +1407,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
   Widget _weekHeader() {
     final cs = Theme.of(context).colorScheme;
-    final weekdays = _mode == CalendarMode.bs
-        ? _weekdayNepaliNames
-        : _weekdayEnglishNames;
+    final weekdays =
+        _mode == CalendarMode.bs ? _weekdayNepaliNames : _weekdayEnglishNames;
 
     return Row(
       children: List.generate(7, (i) {
