@@ -421,12 +421,15 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   Future<void> _convertAndSelect(
     DateTime ad, {
     required bool announce,
+    VoidCallback? refresh,
   }) async {
     if (!mounted) return;
 
     setState(() {
       _converting = true;
     });
+
+    refresh?.call();
 
     try {
       final r = await _adService.convert(ad);
@@ -437,6 +440,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         _selectedBs = r.bsDate;
         _selectedAd = r.adDate;
       });
+
+      refresh?.call();
 
       if (!mounted) return;
 
@@ -461,6 +466,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         setState(() {
           _converting = false;
         });
+
+        refresh?.call();
       }
     }
   }
@@ -497,9 +504,9 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
+              constraints: BoxConstraints(
                 maxWidth: 400,
-                maxHeight: 560,
+                maxHeight: widget.enableTime ? 640 : 560,
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -517,7 +524,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                       setDialogState(() {});
                     };
 
-                    return _calendarBody(_dialogRefresh!);
+                    return _dialogContent(_dialogRefresh!);
                   },
                 ),
               ),
@@ -590,11 +597,13 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     refresh();
   }
 
-  Future<void> _selectTime() async {
+  Future<void> _selectTime([VoidCallback? refresh]) async {
     if (!mounted) return;
 
     final picked = await showTimePicker(
-      context: context,
+      // Use the dialog's context so the picker appears above the dialog
+      // even when the host screen lives on a nested navigator.
+      context: _dialogContext ?? context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
 
@@ -603,6 +612,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     setState(() {
       _selectedTime = picked;
     });
+
+    refresh?.call();
 
     if (!mounted) return;
 
@@ -618,14 +629,23 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       _selectedAd = day.adDate;
     });
     _emit();
-    _closeDialog();
+    if (widget.enableTime) {
+      // Keep the dialog open so the user can pick a time too.
+      _dialogRefresh?.call();
+    } else {
+      _closeDialog();
+    }
   }
 
-  /// AD day tapped → close dialog, resolve BS through the API.
+  /// AD day tapped → resolve BS through the API.
   void _selectAdDay(DateTime date) {
     if (_isAdDisabled(date)) return;
-    _closeDialog();
-    _convertAndSelect(date, announce: true);
+    if (widget.enableTime) {
+      _convertAndSelect(date, announce: true, refresh: _dialogRefresh);
+    } else {
+      _closeDialog();
+      _convertAndSelect(date, announce: true);
+    }
   }
 
   void _selectBsMonth(int month, VoidCallback refreshDialog) {
@@ -708,45 +728,17 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     final bs = _selectedBs;
     final ad = _selectedAd;
     if (bs == null || ad == null) return null;
-    return widget.displayFormat.format(bs, ad);
+    final date = widget.displayFormat.format(bs, ad);
+    final time = _selectedTime;
+    if (time == null || !widget.enableTime) return date;
+    return '$date  •  ${_formatTime(time)}';
   }
 
   // ── Trigger UI ──────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _trigger(),
-        if (widget.enableTime) ...[
-          const SizedBox(height: 12),
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: _selectTime,
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: 'Time',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                suffixIcon: const Icon(Icons.access_time),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-              ),
-              child: Text(
-                _selectedTime == null
-                    ? 'Select time'
-                    : _formatTime(_selectedTime!),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
+    return _trigger();
   }
 
   Widget _trigger() {
@@ -951,6 +943,71 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   }
 
   // ── Dialog body ─────────────────────────────────────────────────────
+
+  /// Full dialog content: calendar plus, when [enableTime] is on, a time
+  /// picker row and a confirm button.
+  Widget _dialogContent(VoidCallback refresh) {
+    if (!widget.enableTime) return _calendarBody(refresh);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: _calendarBody(refresh)),
+        const Divider(height: 24),
+        _timeRow(refresh),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () {
+              _closeDialog();
+              _emit();
+            },
+            child: const Text('Done'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Tappable row inside the dialog that opens the time picker.
+  Widget _timeRow(VoidCallback refresh) {
+    final cs = Theme.of(context).colorScheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _selectTime(refresh),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: cs.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Time', style: Theme.of(context).textTheme.labelMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    _selectedTime == null
+                        ? 'Select time'
+                        : _formatTime(_selectedTime!),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: _selectedTime == null
+                              ? cs.onSurfaceVariant
+                              : null,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _calendarBody(VoidCallback refresh) {
     // BS needs network; AD is local so it never loads / errors.
