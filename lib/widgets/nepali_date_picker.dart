@@ -448,6 +448,13 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       if (announce) {
         _emit();
       }
+
+      if (widget.enableTime) {
+        // Stay open — the user must pick a time before the dialog closes.
+        refresh?.call();
+      } else {
+        _closeDialog();
+      }
     } catch (e) {
       if (!mounted) return;
 
@@ -618,6 +625,11 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     if (!mounted) return;
 
     _emit();
+
+    // Time confirmed → close the dialog automatically.
+    if (widget.enableTime) {
+      _closeDialog();
+    }
   }
 
   // ── Selection ───────────────────────────────────────────────────────
@@ -630,7 +642,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     });
     _emit();
     if (widget.enableTime) {
-      // Keep the dialog open so the user can pick a time too.
+      // Stay open — the user must pick a time before the dialog closes.
       _dialogRefresh?.call();
     } else {
       _closeDialog();
@@ -640,12 +652,11 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   /// AD day tapped → resolve BS through the API.
   void _selectAdDay(DateTime date) {
     if (_isAdDisabled(date)) return;
-    if (widget.enableTime) {
-      _convertAndSelect(date, announce: true, refresh: _dialogRefresh);
-    } else {
-      _closeDialog();
-      _convertAndSelect(date, announce: true);
-    }
+    _convertAndSelect(
+      date,
+      announce: true,
+      refresh: widget.enableTime ? _dialogRefresh : null,
+    );
   }
 
   void _selectBsMonth(int month, VoidCallback refreshDialog) {
@@ -953,57 +964,33 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Flexible(child: _calendarBody(refresh)),
-        const Divider(height: 24),
-        _timeRow(refresh),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: () {
-              _closeDialog();
-              _emit();
-            },
-            child: const Text('Done'),
-          ),
-        ),
+        const SizedBox(height: 16),
+        _timeField(refresh),
       ],
     );
   }
 
-  /// Tappable row inside the dialog that opens the time picker.
-  Widget _timeRow(VoidCallback refresh) {
-    final cs = Theme.of(context).colorScheme;
-
+  /// Time field shown inside the dialog, styled like the date trigger.
+  Widget _timeField(VoidCallback refresh) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () => _selectTime(refresh),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Row(
-          children: [
-            Icon(Icons.access_time, color: cs.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Time', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 2),
-                  Text(
-                    _selectedTime == null
-                        ? 'Select time'
-                        : _formatTime(_selectedTime!),
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: _selectedTime == null
-                              ? cs.onSurfaceVariant
-                              : null,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right),
-          ],
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Time',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          suffixIcon: const Icon(Icons.access_time),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
+        child: Text(
+          _selectedTime == null
+              ? 'Select time'
+              : _formatTime(_selectedTime!),
         ),
       ),
     );

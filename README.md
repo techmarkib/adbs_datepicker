@@ -181,7 +181,7 @@ NepaliDatePicker(
 | `triggerBuilder`   | `NepaliDateTriggerBuilder?`     | `null`          | Fully custom trigger. Overrides `style`.                                           |
 | `firstAdDate`      | `DateTime?`                     | `null`          | Earliest selectable date. Earlier days are disabled.                               |
 | `lastAdDate`       | `DateTime?`                     | `null`          | Latest selectable date. Later days are disabled.                                   |
-| `enableTime`       | `bool`                          | `false`         | Lets the user pick a time inside the same dialog (with a Done button).             |
+| `enableTime`       | `bool`                          | `false`         | Lets the user pick a time inside the same dialog; picking the time closes it.       |
 | `timeFormat`       | `String`                        | `'12'`          | `'12'` (`10:30 AM`) or `'24'` (`22:30`). Anything else fails an assertion.         |
 | `showModeToggle`   | `bool`                          | `true`          | Shows the BS / AD switch in the dialog.                                            |
 | `showSecondaryDay` | `bool`                          | `true`          | BS calendar only. Shows the AD day in small text at the bottom-right of each cell. |
