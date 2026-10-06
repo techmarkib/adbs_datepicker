@@ -71,6 +71,7 @@ class NepaliDatePicker extends StatefulWidget {
 
   final bool enableTime;
   final String timeFormat;
+  final bool enableRange;
   final ValueChanged<NepaliDateValue> onChanged;
   final String label;
   final String hint;
@@ -101,6 +102,7 @@ class NepaliDatePicker extends StatefulWidget {
     this.initialAdDate,
     this.enableTime = false,
     this.timeFormat = '12',
+    this.enableRange = false,
     required this.onChanged,
     this.label = 'Date',
     this.hint = 'Select date',
@@ -129,6 +131,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   // Unified selection (YYYY-MM-DD strings).
   String? _selectedBs;
   String? _selectedAd;
+  String? _selectedBsEnd;
+  String? _selectedAdEnd;
   TimeOfDay? _selectedTime;
   bool _converting = false;
 
@@ -636,27 +640,154 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
   void _selectBsDay(NepaliCalendarDay day) {
     if (_isBsDisabled(day)) return;
+
+    if (widget.enableRange) {
+      _selectBsRangeDay(day);
+      return;
+    }
+
     setState(() {
       _selectedBs = day.bsDate;
       _selectedAd = day.adDate;
     });
     _emit();
     if (widget.enableTime) {
-      // Stay open — the user must pick a time before the dialog closes.
       _dialogRefresh?.call();
     } else {
       _closeDialog();
     }
   }
 
+  /// Range mode: first tap sets the start, second tap sets the end.
+  /// Tapping again (after a complete range) starts over.
+  void _selectBsRangeDay(NepaliCalendarDay day) {
+    setState(() {
+      if (_selectedBs == null || _selectedBsEnd != null) {
+        _selectedBs = day.bsDate;
+        _selectedAd = day.adDate;
+        _selectedBsEnd = null;
+        _selectedAdEnd = null;
+      } else if (day.adDateTime.isBefore(DateTime.parse(_selectedAd!))) {
+        // Tapped before the start → restart with this day.
+        _selectedBs = day.bsDate;
+        _selectedAd = day.adDate;
+        _selectedBsEnd = null;
+        _selectedAdEnd = null;
+      } else {
+        _selectedBsEnd = day.bsDate;
+        _selectedAdEnd = day.adDate;
+      }
+    });
+
+    if (_selectedBsEnd != null) {
+      _emit();
+      if (widget.enableTime) {
+        _dialogRefresh?.call();
+      } else {
+        _closeDialog();
+      }
+    } else {
+      _dialogRefresh?.call();
+    }
+  }
+
   /// AD day tapped → resolve BS through the API.
   void _selectAdDay(DateTime date) {
     if (_isAdDisabled(date)) return;
+
+    if (widget.enableRange) {
+      _selectAdRangeDay(date);
+      return;
+    }
+
     _convertAndSelect(
       date,
       announce: true,
       refresh: widget.enableTime ? _dialogRefresh : null,
     );
+  }
+
+  void _selectAdRangeDay(DateTime date) {
+    if (_selectedAd == null || _selectedAdEnd != null) {
+      setState(() {
+        _selectedAd = _dateOnly(date).toIso8601String().substring(0, 10);
+        _selectedAdEnd = null;
+        _selectedBs = null; // filled after conversion
+        _selectedBsEnd = null;
+      });
+      _dialogRefresh?.call();
+      _convertStartOnly(date);
+      return;
+    }
+
+    final start = DateTime.parse(_selectedAd!);
+    if (_dateOnly(date).isBefore(start)) {
+      setState(() {
+        _selectedAd = _dateOnly(date).toIso8601String().substring(0, 10);
+        _selectedAdEnd = null;
+        _selectedBs = null;
+        _selectedBsEnd = null;
+      });
+      _dialogRefresh?.call();
+      _convertStartOnly(date);
+      return;
+    }
+
+    setState(() {
+      _selectedAdEnd = _dateOnly(date).toIso8601String().substring(0, 10);
+    });
+    _dialogRefresh?.call();
+    _convertRangeAndEmit();
+  }
+
+  Future<void> _convertStartOnly(DateTime ad) async {
+    try {
+      final r = await _adService.convert(ad);
+      if (!mounted) return;
+      setState(() {
+        _selectedBs = r.bsDate;
+        _selectedAd = r.adDate;
+      });
+      _dialogRefresh?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text('Could not convert date: $e')),
+      );
+    }
+  }
+
+  Future<void> _convertRangeAndEmit() async {
+    final end = _selectedAdEnd != null ? DateTime.parse(_selectedAdEnd!) : null;
+    if (end == null) return;
+
+    setState(() => _converting = true);
+    _dialogRefresh?.call();
+
+    try {
+      final r = await _adService.convert(end);
+      if (!mounted) return;
+      setState(() {
+        _selectedBsEnd = r.bsDate;
+        _selectedAdEnd = r.adDate;
+      });
+      _emit();
+      if (widget.enableTime) {
+        _dialogRefresh?.call();
+      } else {
+        _closeDialog();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text('Could not convert date: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _converting = false);
+        _dialogRefresh?.call();
+      }
+    }
   }
 
   void _selectBsMonth(int month, VoidCallback refreshDialog) {
@@ -689,6 +820,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       NepaliDateValue(
         bsDate: bs,
         adDate: ad,
+        bsEndDate: widget.enableRange ? _selectedBsEnd : null,
+        adEndDate: widget.enableRange ? _selectedAdEnd : null,
         time: _selectedTime == null ? null : _formatTime(_selectedTime!),
       ),
     );
@@ -739,8 +872,16 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     final bs = _selectedBs;
     final ad = _selectedAd;
     if (bs == null || ad == null) return null;
-    final date = widget.displayFormat.format(bs, ad);
     final time = _selectedTime;
+    String fmt(String bs, String ad) => widget.displayFormat.format(bs, ad);
+
+    String date = fmt(bs, ad);
+    if (widget.enableRange &&
+        _selectedBsEnd != null &&
+        _selectedAdEnd != null) {
+      date = '$date  →  ${fmt(_selectedBsEnd!, _selectedAdEnd!)}';
+    }
+
     if (time == null || !widget.enableTime) return date;
     return '$date  •  ${_formatTime(time)}';
   }
@@ -1175,19 +1316,33 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         final date = DateTime(_adYear, _adMonth, i + 1);
         final iso =
             '${_pad(date.year, 4)}-${_pad(date.month)}-${_pad(date.day)}';
+        final rangeEnd = _selectedAdEnd;
         return _dayTile(
           primary: '${date.day}',
-          selected: _selectedAd == iso,
+          selected: _selectedAd == iso || rangeEnd == iso,
           today: date.year == now.year &&
               date.month == now.month &&
               date.day == now.day,
           disabled: _isAdDisabled(date),
           isRedDay: date.weekday == DateTime.saturday,
           bold: false,
+          inRange: _isInRange(date),
           onTap: () => _selectAdDay(date),
         );
       }),
     );
+  }
+
+  bool _isInRange(DateTime date) {
+    if (!widget.enableRange ||
+        _selectedAd == null ||
+        _selectedAdEnd == null) {
+      return false;
+    }
+    final d = _dateOnly(date);
+    final s = _dateOnly(DateTime.parse(_selectedAd!));
+    final e = _dateOnly(DateTime.parse(_selectedAdEnd!));
+    return d.isAfter(s) && d.isBefore(e);
   }
 
   Widget _bsDayCell(NepaliCalendarDay day) {
@@ -1197,11 +1352,13 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     return _dayTile(
       primary: day.unicodeBsDay ?? _toNepali(day.bsDay),
       secondary: widget.showSecondaryDay ? '${day.adDay}' : null,
-      selected: _selectedBs == day.bsDate,
+      selected: _selectedBs == day.bsDate ||
+          (widget.enableRange && _selectedBsEnd == day.bsDate),
       today: day.today,
       disabled: disabled,
       isRedDay: day.adDateTime.weekday == DateTime.saturday || isHoliday,
       bold: isHoliday,
+      inRange: _isInRange(day.adDateTime),
       onTap: () => _selectBsDay(day),
       onLongPress:
           !disabled && day.hasEvents ? () => _showEventsSheet(day) : null,
@@ -1218,6 +1375,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     required bool disabled,
     required bool isRedDay,
     required bool bold,
+    bool inRange = false,
     required VoidCallback onTap,
     VoidCallback? onLongPress,
   }) {
@@ -1241,7 +1399,11 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected ? cs.primary : null,
+                  color: selected
+                      ? cs.primary
+                      : inRange
+                          ? cs.secondaryContainer
+                          : null,
                   border: today && !selected
                       ? Border.all(color: cs.primary, width: 1.5)
                       : null,
