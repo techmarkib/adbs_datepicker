@@ -134,6 +134,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   String? _selectedBsEnd;
   String? _selectedAdEnd;
   TimeOfDay? _selectedTime;
+  TimeOfDay? _selectedEndTime;
   bool _converting = false;
 
   // BS calendar state
@@ -608,20 +609,25 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     refresh();
   }
 
-  Future<void> _selectTime([VoidCallback? refresh]) async {
+  Future<void> _selectTime(VoidCallback? refresh, {bool end = false}) async {
     if (!mounted) return;
 
+    final current = end ? _selectedEndTime : _selectedTime;
     final picked = await showTimePicker(
       // Use the dialog's context so the picker appears above the dialog
       // even when the host screen lives on a nested navigator.
       context: _dialogContext ?? context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
+      initialTime: current ?? TimeOfDay.now(),
     );
 
     if (!mounted || picked == null) return;
 
     setState(() {
-      _selectedTime = picked;
+      if (end) {
+        _selectedEndTime = picked;
+      } else {
+        _selectedTime = picked;
+      }
     });
 
     refresh?.call();
@@ -630,8 +636,10 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
     _emit();
 
-    // Time confirmed → close the dialog automatically.
-    if (widget.enableTime) {
+    // Time confirmed → close the dialog automatically. In range+time mode
+    // wait until the end time is chosen before closing.
+    if (widget.enableTime &&
+        !(widget.enableRange && !end && _selectedEndTime == null)) {
       _closeDialog();
     }
   }
@@ -823,6 +831,9 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         bsEndDate: widget.enableRange ? _selectedBsEnd : null,
         adEndDate: widget.enableRange ? _selectedAdEnd : null,
         time: _selectedTime == null ? null : _formatTime(_selectedTime!),
+        endTime: widget.enableRange && _selectedEndTime != null
+            ? _formatTime(_selectedEndTime!)
+            : null,
       ),
     );
   }
@@ -883,7 +894,11 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     }
 
     if (time == null || !widget.enableTime) return date;
-    return '$date  •  ${_formatTime(time)}';
+    var result = '$date  •  ${_formatTime(time)}';
+    if (widget.enableRange && _selectedEndTime != null) {
+      result = '$result – ${_formatTime(_selectedEndTime!)}';
+    }
+    return result;
   }
 
   // ── Trigger UI ──────────────────────────────────────────────────────
@@ -1106,19 +1121,32 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       children: [
         Flexible(child: _calendarBody(refresh)),
         const SizedBox(height: 16),
-        _timeField(refresh),
+        if (widget.enableRange)
+          Row(
+            children: [
+              Expanded(child: _timeField(refresh, end: false)),
+              const SizedBox(width: 12),
+              Expanded(child: _timeField(refresh, end: true)),
+            ],
+          )
+        else
+          _timeField(refresh),
       ],
     );
   }
 
   /// Time field shown inside the dialog, styled like the date trigger.
-  Widget _timeField(VoidCallback refresh) {
+  Widget _timeField(VoidCallback refresh, {bool end = false}) {
+    final selected = end ? _selectedEndTime : _selectedTime;
+
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => _selectTime(refresh),
+      onTap: () => _selectTime(refresh, end: end),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: 'Time',
+          labelText: widget.enableRange
+              ? (end ? 'End time' : 'Start time')
+              : 'Time',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1129,9 +1157,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
           ),
         ),
         child: Text(
-          _selectedTime == null
-              ? 'Select time'
-              : _formatTime(_selectedTime!),
+          selected == null ? 'Select time' : _formatTime(selected),
         ),
       ),
     );

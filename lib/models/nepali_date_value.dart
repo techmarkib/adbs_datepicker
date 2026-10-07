@@ -6,6 +6,7 @@ class NepaliDateValue {
   final String? bsEndDate;
   final String? adEndDate;
   final String? time;
+  final String? endTime;
   final SelectionType selectionType;
 
   const NepaliDateValue({
@@ -14,6 +15,7 @@ class NepaliDateValue {
     this.bsEndDate,
     this.adEndDate,
     this.time,
+    this.endTime,
     this.selectionType = SelectionType.date,
   });
 
@@ -25,6 +27,7 @@ class NepaliDateValue {
         if (bsEndDate != null) 'bsEndDate': bsEndDate,
         if (adEndDate != null) 'adEndDate': adEndDate,
         if (time != null) 'time': time,
+        if (endTime != null) 'endTime': endTime,
         'selectionType': selectionType.name,
       };
 
@@ -32,5 +35,6 @@ class NepaliDateValue {
   String toString() =>
       'BS: $bsDate${bsEndDate != null ? ' → $bsEndDate' : ''} | '
       'AD: $adDate${adEndDate != null ? ' → $adEndDate' : ''} | '
-      'Time: ${time ?? '-'} | Type: ${selectionType.name}';
+      'Time: ${time ?? '-'}${endTime != null ? ' → $endTime' : ''} | '
+      'Type: ${selectionType.name}';
 }
