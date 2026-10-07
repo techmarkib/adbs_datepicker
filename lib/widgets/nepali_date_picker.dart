@@ -86,6 +86,12 @@ class NepaliDatePicker extends StatefulWidget {
 
   final NepaliDateDisplayFormat displayFormat;
   final NepaliDatePickerStyle style;
+
+  /// Accent color for the picker, including the BS/AD toggle, today ring,
+  /// selected dates, and month/year selection. Days inside a selected range
+  /// use a lighter shade of this color. Defaults to the app theme's primary.
+  final Color? themeColor;
+
   final IconData? icon;
   final NepaliDateTriggerBuilder? triggerBuilder;
 
@@ -112,6 +118,7 @@ class NepaliDatePicker extends StatefulWidget {
     this.adService,
     this.displayFormat = NepaliDateDisplayFormat.bsWithAd,
     this.style = NepaliDatePickerStyle.standard,
+    this.themeColor,
     this.icon,
     this.triggerBuilder,
     this.showModeToggle = true,
@@ -510,34 +517,37 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
           // route later, whichever navigator it was pushed on.
           _dialogContext = dialogCtx;
 
-          return Dialog(
-            insetPadding: const EdgeInsets.all(20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: 400,
-                maxHeight: widget.enableTime ? 640 : 560,
+          return Theme(
+            data: _pickerTheme,
+            child: Dialog(
+              insetPadding: const EdgeInsets.all(20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: StatefulBuilder(
-                  builder: (dialogContext, setDialogState) {
-                    if (!dialogMounted) {
-                      return const SizedBox.shrink();
-                    }
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 400,
+                  maxHeight: widget.enableTime ? 640 : 560,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: StatefulBuilder(
+                    builder: (dialogContext, setDialogState) {
+                      if (!dialogMounted) {
+                        return const SizedBox.shrink();
+                      }
 
-                    _dialogRefresh = () {
-                      if (!dialogMounted) return;
-                      if (!_dialogOpen) return;
-                      if (!mounted) return;
+                      _dialogRefresh = () {
+                        if (!dialogMounted) return;
+                        if (!_dialogOpen) return;
+                        if (!mounted) return;
 
-                      setDialogState(() {});
-                    };
+                        setDialogState(() {});
+                      };
 
-                    return _dialogContent(_dialogRefresh!);
-                  },
+                      return _dialogContent(_dialogRefresh!);
+                    },
+                  ),
                 ),
               ),
             ),
@@ -618,6 +628,9 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       // even when the host screen lives on a nested navigator.
       context: _dialogContext ?? context,
       initialTime: current ?? TimeOfDay.now(),
+      builder: widget.themeColor == null
+          ? null
+          : (ctx, child) => Theme(data: _pickerTheme, child: child!),
     );
 
     if (!mounted || picked == null) return;
@@ -901,11 +914,42 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     return result;
   }
 
+  // ── Picker colors ───────────────────────────────────────────────────
+
+  ColorScheme get _pickerColorScheme {
+    final colors = Theme.of(context).colorScheme;
+    final accent = widget.themeColor;
+    if (accent == null) return colors;
+
+    final rangeShade = Color.alphaBlend(
+      accent.withValues(alpha: 0.16),
+      colors.surface,
+    );
+    return colors.copyWith(
+      primary: accent,
+      onPrimary: ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
+          ? Colors.white
+          : Colors.black,
+      primaryContainer: rangeShade,
+      onPrimaryContainer: colors.onSurface,
+    );
+  }
+
+  Color get _rangeColor => Color.alphaBlend(
+        _pickerColorScheme.primary.withValues(alpha: 0.16),
+        _pickerColorScheme.surface,
+      );
+
+  ThemeData get _pickerTheme => Theme.of(context).copyWith(
+        colorScheme: _pickerColorScheme,
+      );
+
   // ── Trigger UI ──────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return _trigger();
+    if (widget.themeColor == null) return _trigger();
+    return Theme(data: _pickerTheme, child: _trigger());
   }
 
   Widget _trigger() {
@@ -916,7 +960,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     }
 
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = _pickerColorScheme;
     final shown = text ?? widget.hint;
     final muted = text == null ? cs.onSurfaceVariant : null;
 
@@ -931,7 +975,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              suffixIcon: Icon(widget.icon ?? Icons.calendar_month),
+              suffixIcon:
+                  Icon(widget.icon ?? Icons.calendar_month, color: widget.themeColor),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
@@ -954,7 +999,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
-              suffixIcon: Icon(widget.icon ?? Icons.calendar_month),
+              suffixIcon:
+                  Icon(widget.icon ?? Icons.calendar_month, color: widget.themeColor),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
@@ -976,7 +1022,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
             ),
             child: Row(
               children: [
-                Icon(widget.icon ?? Icons.event_outlined),
+                Icon(widget.icon ?? Icons.event_outlined, color: widget.themeColor),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1002,13 +1048,14 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: cs.secondaryContainer,
+                color: widget.themeColor == null ? cs.secondaryContainer : _rangeColor,
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(widget.icon ?? Icons.calendar_today, size: 18),
+                  Icon(widget.icon ?? Icons.calendar_today,
+                      size: 18, color: widget.themeColor),
                   const SizedBox(width: 8),
                   Text(shown),
                 ],
@@ -1037,7 +1084,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                     ),
                     child: Icon(
                       widget.icon ?? Icons.event,
-                      color: cs.onPrimaryContainer,
+                      color: widget.themeColor ?? cs.onPrimaryContainer,
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -1069,7 +1116,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
           borderRadius: BorderRadius.circular(12),
           child: ListTile(
             onTap: _openCalendar,
-            leading: Icon(widget.icon ?? Icons.calendar_month_outlined),
+            leading: Icon(widget.icon ?? Icons.calendar_month_outlined,
+                color: widget.themeColor),
             title: Text(widget.label),
             subtitle: Text(shown),
             trailing: const Icon(Icons.chevron_right),
@@ -1101,7 +1149,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                     ],
                   ),
                 ),
-                Icon(widget.icon ?? Icons.calendar_today_outlined),
+                Icon(widget.icon ?? Icons.calendar_today_outlined,
+                    color: widget.themeColor),
               ],
             ),
           ),
@@ -1144,9 +1193,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       onTap: () => _selectTime(refresh, end: end),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: widget.enableRange
-              ? (end ? 'End time' : 'Start time')
-              : 'Time',
+          labelText:
+              widget.enableRange ? (end ? 'End time' : 'Start time') : 'Time',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1360,9 +1408,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   }
 
   bool _isInRange(DateTime date) {
-    if (!widget.enableRange ||
-        _selectedAd == null ||
-        _selectedAdEnd == null) {
+    if (!widget.enableRange || _selectedAd == null || _selectedAdEnd == null) {
       return false;
     }
     final d = _dateOnly(date);
@@ -1405,7 +1451,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     required VoidCallback onTap,
     VoidCallback? onLongPress,
   }) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = _pickerColorScheme;
 
     return InkWell(
       onTap: disabled ? null : onTap,
@@ -1428,7 +1474,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                   color: selected
                       ? cs.primary
                       : inRange
-                          ? cs.secondaryContainer
+                          ? _rangeColor
                           : null,
                   border: today && !selected
                       ? Border.all(color: cs.primary, width: 1.5)
@@ -1478,7 +1524,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
   /// Bottom sheet with events (long-press on a BS day).
   void _showEventsSheet(NepaliCalendarDay day) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = _pickerColorScheme;
     final dateLabel = '${day.unicodeBsDay ?? _toNepali(day.bsDay)} '
         '${day.unicodeMonthName ?? day.monthName} '
         '${day.unicodeBsYear ?? _toNepali(day.bsYear)}';
@@ -1492,102 +1538,105 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
+        return Theme(
+          data: _pickerTheme,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: cs.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  dateLabel,
-                  style: Theme.of(ctx)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  '${day.bsDate}  •  ${day.adDate}',
-                  style: Theme.of(ctx)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
-                ),
-                const SizedBox(height: 16),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(ctx).size.height * 0.45,
+                  const SizedBox(height: 16),
+                  Text(
+                    dateLabel,
+                    style: Theme.of(ctx)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: day.events.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final e = day.events[i];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          e.nationalHoliday
-                              ? Icons.flag_rounded
-                              : Icons.event_rounded,
-                          color: e.nationalHoliday ? cs.error : cs.primary,
-                        ),
-                        title: Text(
-                          e.title.isNotEmpty ? e.title : e.titleEn,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: e.nationalHoliday ? cs.error : null,
+                  Text(
+                    '${day.bsDate}  •  ${day.adDate}',
+                    style: Theme.of(ctx)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 16),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(ctx).size.height * 0.45,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: day.events.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final e = day.events[i];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            e.nationalHoliday
+                                ? Icons.flag_rounded
+                                : Icons.event_rounded,
+                            color: e.nationalHoliday ? cs.error : cs.primary,
                           ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (e.nationalHoliday)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  'सार्वजनिक बिदा',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: cs.error,
+                          title: Text(
+                            e.title.isNotEmpty ? e.title : e.titleEn,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: e.nationalHoliday ? cs.error : null,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (e.nationalHoliday)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'सार्वजनिक बिदा',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.error,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            if (e.description != null &&
-                                e.description!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(e.description!),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
+                              if (e.description != null &&
+                                  e.description!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(e.description!),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () {
-                    // Close the sheet with its own context, then select
-                    // (which closes the dialog via _closeDialog).
-                    Navigator.of(ctx).pop();
-                    _selectBsDay(day);
-                  },
-                  child: const Text('Select this date'),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () {
+                      // Close the sheet with its own context, then select
+                      // (which closes the dialog via _closeDialog).
+                      Navigator.of(ctx).pop();
+                      _selectBsDay(day);
+                    },
+                    child: const Text('Select this date'),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1601,7 +1650,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: _pickerColorScheme.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1615,7 +1664,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
   Widget _modeChip(String label, CalendarMode mode, VoidCallback refresh) {
     final selected = _mode == mode;
-    final cs = Theme.of(context).colorScheme;
+    final cs = _pickerColorScheme;
     return GestureDetector(
       onTap: () => _switchMode(mode, refresh),
       child: AnimatedContainer(
@@ -1638,7 +1687,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   }
 
   Widget _weekHeader() {
-    final cs = Theme.of(context).colorScheme;
+    final cs = _pickerColorScheme;
     final weekdays =
         _mode == CalendarMode.bs ? _weekdayNepaliNames : _weekdayEnglishNames;
 
@@ -1663,7 +1712,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   // ── Month view (shared) ─────────────────────────────────────────────
 
   Widget _monthView(VoidCallback refresh) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = _pickerColorScheme;
     final isBs = _mode == CalendarMode.bs;
     final names = isBs ? _nepaliMonths : _englishMonths;
     final curYear = isBs ? _year : _adYear;
@@ -1748,7 +1797,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   // ── Year view (shared) ──────────────────────────────────────────────
 
   Widget _yearView(VoidCallback refresh) {
-    final cs = Theme.of(context).colorScheme;
+    final cs = _pickerColorScheme;
     final isBs = _mode == CalendarMode.bs;
     final curYear = isBs ? _year : _adYear;
     final start = _yearRangeStart;

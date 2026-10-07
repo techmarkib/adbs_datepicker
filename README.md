@@ -12,6 +12,7 @@ Pick a date in either calendar and always get **both** the BS and AD values back
 - **Both dates returned.** Every selection gives you `bsDate` and `adDate` in `YYYY-MM-DD` format.
 - **Four display formats.** Show BS only, AD only, or either one with the other in brackets.
 - **Seven trigger styles.** `standard`, `filled`, `outlined`, `compact`, `card`, `listTile` and `minimal`. You can also supply a fully custom trigger.
+- **One accent color.** Set `themeColor` to coordinate the toggle, today ring, selected dates, and month/year choices. Date ranges use a lighter shade of it.
 - **Nepali localisation.** Nepali month names, weekday names and Devanagari numerals on the BS calendar.
 - **Holidays and events.** National holidays are highlighted in red, and a long-press on a day shows its events.
 - **Secondary day.** The BS calendar can show the matching AD day in each cell.
@@ -80,6 +81,7 @@ iOS, web, Windows and Linux need no extra setup. On web, the API server must all
 
 ```dart
 import 'package:adbs_datepicker/adbs_datepicker.dart';
+import 'package:flutter/material.dart';
 
 NepaliDatePicker(
   label: 'Date of Birth',
@@ -98,6 +100,7 @@ NepaliDatePicker(
   hint: 'Choose a date',
   displayFormat: NepaliDateDisplayFormat.bsWithAd,
   style: NepaliDatePickerStyle.filled,
+  themeColor: Colors.teal,
   initialBsDate: '2083-06-14',
   firstAdDate: DateTime(2026, 1, 1),
   lastAdDate: DateTime(2027, 12, 31),
@@ -166,6 +169,22 @@ NepaliDatePicker(
 
 ---
 
+## Picker color
+
+Pass one `themeColor` to style the BS/AD switch, today's outline, selected dates, month/year chips, trigger accents and built-in time picker. In range mode, dates **between** the start and end use a translucent shade of the same color; the endpoints use the full color.
+
+```dart
+NepaliDatePicker(
+  themeColor: Colors.teal,
+  enableRange: true,
+  onChanged: (value) {},
+)
+```
+
+If omitted, the picker uses `Theme.of(context).colorScheme.primary` (and the matching `onPrimary`) from your app. A custom `triggerBuilder` remains fully under your control.
+
+---
+
 ## Options
 
 | Parameter          | Type                            | Default         | Description                                                                        |
@@ -177,6 +196,7 @@ NepaliDatePicker(
 | `initialAdDate`    | `DateTime?`                     | `null`          | Initial AD date. Converted to BS through the API.                                  |
 | `displayFormat`    | `NepaliDateDisplayFormat`       | `bsWithAd`      | Field text format and the calendar the dialog opens on.                            |
 | `style`            | `NepaliDatePickerStyle`         | `standard`      | Look of the trigger.                                                               |
+| `themeColor`       | `Color?`                        | app primary     | Accent for the picker; range interior uses a lighter shade.                        |
 | `icon`             | `IconData?`                     | style default   | Trigger icon.                                                                      |
 | `triggerBuilder`   | `NepaliDateTriggerBuilder?`     | `null`          | Fully custom trigger. Overrides `style`.                                           |
 | `firstAdDate`      | `DateTime?`                     | `null`          | Earliest selectable date. Earlier days are disabled.                               |
