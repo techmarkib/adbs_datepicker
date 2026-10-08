@@ -15,7 +15,7 @@ The picker provides a complete BS and AD calendar experience with a switch betwe
 The BS calendar displays Nepali month names, Nepali numerals, weekdays, holidays, events, and the corresponding AD day.
 
 <p align="center">
-  <img src="./assets/screenshots/picker-bs.png" alt="BS Calendar" width="380">
+  <img src="./assets/screenshots/picker-bs-only.png" alt="BS Calendar" width="380">
 </p>
 
 ### AD Calendar
@@ -23,7 +23,7 @@ The BS calendar displays Nepali month names, Nepali numerals, weekdays, holidays
 The AD calendar provides the familiar Gregorian calendar while still allowing the user to switch back to BS at any time.
 
 <p align="center">
-  <img src="./assets/screenshots/picker-ad.png" alt="AD Calendar" width="380">
+  <img src="./assets/screenshots/picker-ad-only.png" alt="AD Calendar" width="380">
 </p>
 
 ### BS and AD Calendar
@@ -119,9 +119,9 @@ flutter pub get
 ## Requirements
 
 | Requirement | Minimum |
-|---|---:|
-| Flutter | 3.27 |
-| Dart | 3.0 |
+| ----------- | ------: |
+| Flutter     |    3.27 |
+| Dart        |     3.0 |
 
 ---
 
@@ -255,12 +255,12 @@ The AD calendar uses:
 
 `displayFormat` controls the value displayed in the trigger and determines which calendar opens initially.
 
-| Format | Field text | Opens on |
-|---|---|---|
-| `NepaliDateDisplayFormat.bs` | `2083-06-14` | BS |
-| `NepaliDateDisplayFormat.bsWithAd` | `2083-06-14 (2026-10-01)` | BS |
-| `NepaliDateDisplayFormat.ad` | `2026-10-01` | AD |
-| `NepaliDateDisplayFormat.adWithBs` | `2026-10-01 (2083-06-14)` | AD |
+| Format                             | Field text                | Opens on |
+| ---------------------------------- | ------------------------- | -------- |
+| `NepaliDateDisplayFormat.bs`       | `2083-06-14`              | BS       |
+| `NepaliDateDisplayFormat.bsWithAd` | `2083-06-14 (2026-10-01)` | BS       |
+| `NepaliDateDisplayFormat.ad`       | `2026-10-01`              | AD       |
+| `NepaliDateDisplayFormat.adWithBs` | `2026-10-01 (2083-06-14)` | AD       |
 
 Example:
 
@@ -498,15 +498,15 @@ NepaliDatePicker(
 
 Available styles:
 
-| Style | Description |
-|---|---|
-| `standard` | Outlined text field with a calendar icon |
-| `filled` | Filled text field with no border |
+| Style      | Description                                                  |
+| ---------- | ------------------------------------------------------------ |
+| `standard` | Outlined text field with a calendar icon                     |
+| `filled`   | Filled text field with no border                             |
 | `outlined` | Bordered box with icon on the left and label above the value |
-| `compact` | Rounded pill sized to its content |
-| `card` | Elevated card with icon badge and chevron |
-| `listTile` | Tinted `ListTile` |
-| `minimal` | Plain label and value with no border |
+| `compact`  | Rounded pill sized to its content                            |
+| `card`     | Elevated card with icon badge and chevron                    |
+| `listTile` | Tinted `ListTile`                                            |
+| `minimal`  | Plain label and value with no border                         |
 
 The default style is:
 
@@ -598,27 +598,27 @@ A custom `triggerBuilder` remains completely under your control.
 
 # Configuration Options
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `onChanged` | `ValueChanged<NepaliDateValue>` | **required** | Called when a date or time is selected |
-| `label` | `String` | `'Date'` | Field label |
-| `hint` | `String` | `'Select date'` | Displayed when no date is selected |
-| `initialBsDate` | `String?` | `null` | Initial BS date in `YYYY-MM-DD` |
-| `initialAdDate` | `DateTime?` | `null` | Initial AD date |
-| `displayFormat` | `NepaliDateDisplayFormat` | `bsWithAd` | Display format and initial calendar |
-| `style` | `NepaliDatePickerStyle` | `standard` | Built-in trigger style |
-| `themeColor` | `Color?` | App primary | Picker accent color |
-| `icon` | `IconData?` | Style default | Trigger icon |
-| `triggerBuilder` | `NepaliDateTriggerBuilder?` | `null` | Fully custom trigger |
-| `firstAdDate` | `DateTime?` | `null` | Earliest selectable AD date |
-| `lastAdDate` | `DateTime?` | `null` | Latest selectable AD date |
-| `enableRange` | `bool` | `false` | Enables start/end date selection |
-| `enableTime` | `bool` | `false` | Enables time selection |
-| `timeFormat` | `String` | `'12'` | `'12'` or `'24'` |
-| `showModeToggle` | `bool` | `true` | Shows BS / AD toggle |
-| `showSecondaryDay` | `bool` | `true` | Shows AD day inside BS cells |
-| `service` | `NepaliDateService?` | Internal | Custom BS calendar service |
-| `adService` | `AdToBsService?` | Internal | Custom AD → BS converter |
+| Parameter          | Type                            | Default         | Description                            |
+| ------------------ | ------------------------------- | --------------- | -------------------------------------- |
+| `onChanged`        | `ValueChanged<NepaliDateValue>` | **required**    | Called when a date or time is selected |
+| `label`            | `String`                        | `'Date'`        | Field label                            |
+| `hint`             | `String`                        | `'Select date'` | Displayed when no date is selected     |
+| `initialBsDate`    | `String?`                       | `null`          | Initial BS date in `YYYY-MM-DD`        |
+| `initialAdDate`    | `DateTime?`                     | `null`          | Initial AD date                        |
+| `displayFormat`    | `NepaliDateDisplayFormat`       | `bsWithAd`      | Display format and initial calendar    |
+| `style`            | `NepaliDatePickerStyle`         | `standard`      | Built-in trigger style                 |
+| `themeColor`       | `Color?`                        | App primary     | Picker accent color                    |
+| `icon`             | `IconData?`                     | Style default   | Trigger icon                           |
+| `triggerBuilder`   | `NepaliDateTriggerBuilder?`     | `null`          | Fully custom trigger                   |
+| `firstAdDate`      | `DateTime?`                     | `null`          | Earliest selectable AD date            |
+| `lastAdDate`       | `DateTime?`                     | `null`          | Latest selectable AD date              |
+| `enableRange`      | `bool`                          | `false`         | Enables start/end date selection       |
+| `enableTime`       | `bool`                          | `false`         | Enables time selection                 |
+| `timeFormat`       | `String`                        | `'12'`          | `'12'` or `'24'`                       |
+| `showModeToggle`   | `bool`                          | `true`          | Shows BS / AD toggle                   |
+| `showSecondaryDay` | `bool`                          | `true`          | Shows AD day inside BS cells           |
+| `service`          | `NepaliDateService?`            | Internal        | Custom BS calendar service             |
+| `adService`        | `AdToBsService?`                | Internal        | Custom AD → BS converter               |
 
 ---
 
@@ -745,15 +745,15 @@ If time selection is enabled, the user can select a time from the same picker fl
 
 # Using the Calendar
 
-| Action | Result |
-|---|---|
-| Tap a day | Select the day |
-| Long-press a day with events | Open the event sheet |
-| Tap the month title | Open month picker |
-| Tap the year | Open year picker |
-| Previous arrow | Go to previous month/year |
-| Next arrow | Go to next month/year |
-| BS / AD toggle | Switch calendar system |
+| Action                       | Result                    |
+| ---------------------------- | ------------------------- |
+| Tap a day                    | Select the day            |
+| Long-press a day with events | Open the event sheet      |
+| Tap the month title          | Open month picker         |
+| Tap the year                 | Open year picker          |
+| Previous arrow               | Go to previous month/year |
+| Next arrow                   | Go to next month/year     |
+| BS / AD toggle               | Switch calendar system    |
 
 Calendar visual indicators include:
 
@@ -914,13 +914,13 @@ The following models are exported from:
 package:adbs_datepicker/adbs_datepicker.dart
 ```
 
-| Class | Purpose |
-|---|---|
-| `NepaliDateValue` | Value returned by the picker |
-| `NepaliCalendarMonth` | Represents a BS calendar month |
-| `NepaliCalendarDay` | Represents a BS/AD calendar day |
-| `NepaliCalendarEvent` | Represents a calendar event |
-| `AdToBsResult` | Result of AD → BS conversion |
+| Class                 | Purpose                         |
+| --------------------- | ------------------------------- |
+| `NepaliDateValue`     | Value returned by the picker    |
+| `NepaliCalendarMonth` | Represents a BS calendar month  |
+| `NepaliCalendarDay`   | Represents a BS/AD calendar day |
+| `NepaliCalendarEvent` | Represents a calendar event     |
+| `AdToBsResult`        | Result of AD → BS conversion    |
 
 ## NepaliDateValue
 
@@ -999,11 +999,11 @@ patro.techarttrekkies.com.np
 
 The package uses the following endpoints:
 
-| Endpoint | Purpose |
-|---|---|
+| Endpoint                                    | Purpose                        |
+| ------------------------------------------- | ------------------------------ |
 | `GET /api/v2/datepicker/dates?year=&month=` | BS month data, days and events |
-| `GET /api/v2/datepicker/today` | Current BS and AD date |
-| `GET /ad/{yyyy}/{mm}/{dd}/json` | AD → BS conversion |
+| `GET /api/v2/datepicker/today`              | Current BS and AD date         |
+| `GET /ad/{yyyy}/{mm}/{dd}/json`             | AD → BS conversion             |
 
 ### API dependency
 
@@ -1480,18 +1480,18 @@ See the [`LICENSE`](LICENSE) file for details.
 
 For reference, the repository currently includes the following screenshots:
 
-| Screenshot | Demonstrates |
-|---|---|
-| `picker-bs.png` | BS calendar |
-| `picker-ad.png` | AD calendar |
-| `month-picker-bs.png` | BS month selection |
-| `month-picker-ad.png` | AD month selection |
-| `year-picker-bs.png` | BS year selection |
-| `year-picker-ad.png` | AD year selection |
-| `holidays-events.png` | Holidays and calendar events |
-| `date-range-picker.png` | Date range selection |
-| `picker-with-time.png` | Date picker with time enabled |
-| `time-picker.png` | Time selection |
+| Screenshot              | Demonstrates                  |
+| ----------------------- | ----------------------------- |
+| `picker-bs.png`         | BS calendar                   |
+| `picker-ad.png`         | AD calendar                   |
+| `month-picker-bs.png`   | BS month selection            |
+| `month-picker-ad.png`   | AD month selection            |
+| `year-picker-bs.png`    | BS year selection             |
+| `year-picker-ad.png`    | AD year selection             |
+| `holidays-events.png`   | Holidays and calendar events  |
+| `date-range-picker.png` | Date range selection          |
+| `picker-with-time.png`  | Date picker with time enabled |
+| `time-picker.png`       | Time selection                |
 
 All screenshots are stored under:
 
