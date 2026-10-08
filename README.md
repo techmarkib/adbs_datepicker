@@ -20,11 +20,13 @@ The BS calendar displays Nepali month names, Nepali numerals, weekdays, holidays
 
 ### AD Calendar
 
-The AD calendar provides the familiar Gregorian calendar while still allowing the user to switch back to BS at any time.
+The AD calendar provides the familiar Gregorian calendar and is build on flutter only not depended on any external date converter API's.
 
 <p align="center">
   <img src="./assets/screenshots/picker-ad-only.png" alt="AD Calendar" width="380">
 </p>
+
+Above only AD and BS calendar will be shown if showModeToggle is set false, else default mode will give togle to switch between calendar types
 
 ### BS and AD Calendar
 
@@ -285,33 +287,45 @@ to determine which calendar the format opens on.
 
 The picker provides dedicated month and year selection screens.
 
-## BS Month Picker
+Users can tap the month title to open the respective month selection interface.
 
-<p align="center">
-  <img src="./assets/screenshots/month-picker-bs.png" alt="BS Month Picker" width="380">
-</p>
+<table>
+  <tr>
+    <td align="center">
+    <b>BS Month Picker</b>
+      <img src="./assets/screenshots/month-picker-bs.png" alt="BS Month Picker" width="350">
+      <br>
+      <b>BS Calendar</b>
+    </td>
+    <td align="center">
+    <b>AD Month Picker</b>
+      <img src="./assets/screenshots/month-picker-ad.png" alt="AD Month Picker" width="350">
+      <br>
+      <b>BS Calendar</b>
+    </td>
+  </tr>
+</table>
 
-Users can tap the month title to open the BS month selection interface.
+## Year Picker
 
-## AD Month Picker
+Users can tap the year title to open the respective year selection interface.
 
-<p align="center">
-  <img src="./assets/screenshots/month-picker-ad.png" alt="AD Month Picker" width="380">
-</p>
-
-The same interaction is available for the AD calendar.
-
-## BS Year Picker
-
-<p align="center">
-  <img src="./assets/screenshots/year-picker-bs.png" alt="BS Year Picker" width="380">
-</p>
-
-## AD Year Picker
-
-<p align="center">
-  <img src="./assets/screenshots/year-picker-ad.png" alt="AD Year Picker" width="380">
-</p>
+<table>
+  <tr>
+    <td align="center">
+    <b>BS Month Picker</b>
+      <img src="./assets/screenshots/year-picker-bs.png" alt="BS Year Picker" width="350">
+      <br>
+      <b>BS Calendar</b>
+    </td>
+    <td align="center">
+    <b>AD Month Picker</b>
+       <img src="./assets/screenshots/year-picker-ad.png" alt="AD Year Picker" width="350">
+      <br>
+      <b>BS Calendar</b>
+    </td>
+  </tr>
+</table>
 
 ### Navigation
 
