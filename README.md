@@ -130,7 +130,6 @@ flutter pub get
 # Platform Setup
 
 The package uses an online API for BS calendar data and AD → BS conversion.
-
 Therefore, the application needs internet access.
 
 ## Android
@@ -162,7 +161,6 @@ Release.entitlements
 ## iOS, Web, Windows and Linux
 
 No additional configuration is required.
-
 For web applications, the API server must allow CORS requests from your application's origin.
 
 ---
@@ -286,22 +284,19 @@ to determine which calendar the format opens on.
 # Month and Year Selection
 
 The picker provides dedicated month and year selection screens.
-
 Users can tap the month title to open the respective month selection interface.
 
 <table>
   <tr>
     <td align="center">
-    <b>BS Month Picker</b>
+    <b>Nepali Month Picker</b>
       <img src="./assets/screenshots/month-picker-bs.png" alt="BS Month Picker" width="350">
       <br>
-      <b>BS Calendar</b>
     </td>
     <td align="center">
-    <b>AD Month Picker</b>
+    <b>English Month Picker</b>
       <img src="./assets/screenshots/month-picker-ad.png" alt="AD Month Picker" width="350">
       <br>
-      <b>BS Calendar</b>
     </td>
   </tr>
 </table>
@@ -313,16 +308,14 @@ Users can tap the year title to open the respective year selection interface.
 <table>
   <tr>
     <td align="center">
-    <b>BS Month Picker</b>
+    <b>Nepali Month Picker</b>
       <img src="./assets/screenshots/year-picker-bs.png" alt="BS Year Picker" width="350">
       <br>
-      <b>BS Calendar</b>
     </td>
     <td align="center">
-    <b>AD Month Picker</b>
+    <b>English Month Picker</b>
        <img src="./assets/screenshots/year-picker-ad.png" alt="AD Year Picker" width="350">
       <br>
-      <b>BS Calendar</b>
     </td>
   </tr>
 </table>
@@ -351,9 +344,7 @@ Public holidays and calendar events are displayed directly inside the calendar.
 </p>
 
 National holidays are highlighted in red.
-
 When a day contains events, the user can **long-press the day** to open the event sheet.
-
 The event sheet provides:
 
 - Event name
@@ -395,7 +386,6 @@ Example:
 </p>
 
 Range selection uses the same calendar interface and theme color.
-
 The selected range uses:
 
 - Full accent color for the endpoints
@@ -416,7 +406,6 @@ NepaliDatePicker(
 ```
 
 The limits are always expressed in **AD**.
-
 They are automatically applied to both calendars.
 
 For example, if:
@@ -740,7 +729,6 @@ When a user selects a date:
 ### AD → BS conversion
 
 When selecting a date from the AD calendar, the package sends the selected AD date to the conversion API.
-
 During conversion, the picker displays:
 
 ```text
@@ -782,7 +770,6 @@ Calendar visual indicators include:
 # Services
 
 The widget creates its own services by default.
-
 You can inject your own services when you need:
 
 - A custom API endpoint
@@ -809,7 +796,6 @@ NepaliDatePicker(
 ```
 
 If you provide your own service instance, **you own its lifecycle and are responsible for disposing it**.
-
 The widget only disposes services that it creates internally.
 
 ---
@@ -868,7 +854,6 @@ year-month
 ```
 
 The cache stores up to **24 months** and removes the oldest entries first.
-
 To skip the cache:
 
 ```dart
@@ -913,9 +898,7 @@ BS: 2083-06-14
 ```
 
 Requests have a timeout of **15 seconds**.
-
 A non-200 HTTP response results in an exception.
-
 An unexpected response body results in a `FormatException`.
 
 ---
