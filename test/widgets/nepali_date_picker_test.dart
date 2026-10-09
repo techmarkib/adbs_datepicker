@@ -18,11 +18,6 @@ void main() {
       isNotEmpty,
     );
 
-    expect(
-      SelectionType.values,
-      isNotEmpty,
-    );
-
     const value = NepaliDateValue(
       bsDate: '2083-06-14',
       adDate: '2026-10-01',

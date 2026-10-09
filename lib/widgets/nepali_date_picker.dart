@@ -64,10 +64,36 @@ enum _DialogView { day, month, year }
 
 class NepaliDatePicker extends StatefulWidget {
   /// Initial BS date, e.g. `2083-06-14`.
+  ///
+  /// Accepts both zero-padded (`2083-06-14`) and compact
+  /// (`2083-6-14`) forms.
   final String? initialBsDate;
 
   /// Initial AD date (used for AD formats; converted to BS via API).
+  ///
+  /// Also honoured by BS display formats, so an edit form that stores
+  /// only the AD value can still pre-fill the picker.
   final DateTime? initialAdDate;
+
+  /// Initial BS end date for range updates, e.g. `2083-06-20`.
+  ///
+  /// Requires [enableRange]. The matching AD date is resolved from the
+  /// BS calendar API unless [initialAdEndDate] is also provided.
+  final String? initialBsEndDate;
+
+  /// Initial AD end date for range updates.
+  ///
+  /// Requires [enableRange]. Converted to BS via the AD → BS API
+  /// unless [initialBsEndDate] is also provided.
+  final DateTime? initialAdEndDate;
+
+  /// Pre-selected start time used to restore an existing value when
+  /// [enableTime] is on (update forms).
+  final TimeOfDay? initialTime;
+
+  /// Pre-selected end time used to restore an existing range value
+  /// when [enableTime] and [enableRange] are on (update forms).
+  final TimeOfDay? initialEndTime;
 
   final bool enableTime;
   final String timeFormat;
@@ -106,6 +132,10 @@ class NepaliDatePicker extends StatefulWidget {
     super.key,
     this.initialBsDate,
     this.initialAdDate,
+    this.initialBsEndDate,
+    this.initialAdEndDate,
+    this.initialTime,
+    this.initialEndTime,
     this.enableTime = false,
     this.timeFormat = '12',
     this.enableRange = false,
@@ -143,6 +173,11 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   TimeOfDay? _selectedTime;
   TimeOfDay? _selectedEndTime;
   bool _converting = false;
+
+  /// Guards against overlapping async bootstraps (for example when a
+  /// parent updates the initial values while the first bootstrap is
+  /// still in flight). Only the latest bootstrap may apply its result.
+  int _bootstrapGen = 0;
 
   // BS calendar state
   NepaliCalendarMonth? _calendar;
@@ -254,6 +289,29 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   }
 
   @override
+  void didUpdateWidget(covariant NepaliDatePicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.displayFormat != widget.displayFormat) {
+      _mode = widget.displayFormat.calendarMode;
+    }
+
+    final valuesChanged =
+        oldWidget.initialBsDate != widget.initialBsDate ||
+        oldWidget.initialAdDate != widget.initialAdDate ||
+        oldWidget.initialBsEndDate != widget.initialBsEndDate ||
+        oldWidget.initialAdEndDate != widget.initialAdEndDate ||
+        oldWidget.initialTime != widget.initialTime ||
+        oldWidget.initialEndTime != widget.initialEndTime;
+
+    // Edit forms often load a different record into an already
+    // mounted picker — re-sync the selection with the new value.
+    if (valuesChanged || oldWidget.displayFormat != widget.displayFormat) {
+      _bootstrap();
+    }
+  }
+
+  @override
   void dispose() {
     _dialogOpen = false;
     _dialogRefresh = null;
@@ -270,18 +328,57 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     super.dispose();
   }
 
+  /// Loads the selection from the widget's initial values.
+  ///
+  /// Called once from [initState] and again from
+  /// [didUpdateWidget] so an edit form can load a different
+  /// existing value into an already-mounted picker.
   Future<void> _bootstrap() async {
-    if (_mode == CalendarMode.bs) {
-      await _bootstrapBs(selectToday: true);
-      return;
-    }
-    // AD formats: BS calendar is loaded lazily when the user switches to it.
+    final gen = ++_bootstrapGen;
+    final refresh = _dialogOpen ? _dialogRefresh : null;
+
+    // A fresh bootstrap replaces any previous selection entirely.
+    _selectedBs = null;
+    _selectedAd = null;
+    _selectedBsEnd = null;
+    _selectedAdEnd = null;
+    _selectedTime = widget.initialTime;
+    _selectedEndTime = widget.initialEndTime;
+
+    final bs = _normalizeBs(widget.initialBsDate);
     final ad = widget.initialAdDate;
-    if (ad != null) {
-      await _convertAndSelect(ad, announce: false);
-    } else if (widget.initialBsDate != null) {
-      await _bootstrapBs(selectToday: false);
+
+    if (_mode == CalendarMode.bs) {
+      if (bs != null) {
+        await _bootstrapBs(selectToday: false, refresh: refresh);
+      } else if (ad != null) {
+        // BS display formats must also honour a stored AD value.
+        await _convertAndSelect(
+          ad,
+          announce: false,
+          refresh: refresh,
+          closeOnComplete: false,
+        );
+      } else {
+        await _bootstrapBs(selectToday: true, refresh: refresh);
+      }
+    } else if (ad != null) {
+      // AD formats: the BS calendar is loaded lazily when the
+      // user switches to it.
+      await _convertAndSelect(
+        ad,
+        announce: false,
+        refresh: refresh,
+        closeOnComplete: false,
+      );
+    } else if (bs != null) {
+      await _bootstrapBs(selectToday: false, refresh: refresh);
     }
+
+    // A newer bootstrap superseded this one — discard the result.
+    if (!mounted || gen != _bootstrapGen) return;
+
+    await _resolveInitialRangeEnd(refresh: refresh);
   }
 
   List<int>? _parseBs(String? s) {
@@ -290,6 +387,23 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     }
     return s.split('-').map(int.parse).toList();
   }
+
+  /// Normalizes `YYYY-M-D` input to the zero-padded `YYYY-MM-DD`
+  /// form used by the BS calendar API. Returns null when [s] is
+  /// null or not a valid BS date string.
+  String? _normalizeBs(String? s) {
+    if (s == null || !RegExp(r'^\d{4}-\d{1,2}-\d{1,2}$').hasMatch(s)) {
+      return null;
+    }
+    final parts = s.split('-');
+    return '${parts[0].padLeft(4, '0')}'
+        '-${parts[1].padLeft(2, '0')}'
+        '-${parts[2].padLeft(2, '0')}';
+  }
+
+  /// Zero-padded `YYYY-MM-DD` form of an AD [DateTime].
+  String _isoOf(DateTime d) =>
+      '${_pad(d.year, 4)}-${_pad(d.month)}-${_pad(d.day)}';
 
   /// Loads the BS month to display (selected → initial → today).
   Future<void> _bootstrapBs({
@@ -400,13 +514,14 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
   void _selectInitialDayIfNeeded() {
     if (!mounted) return;
 
-    if (_selectedBs != null || widget.initialBsDate == null) {
+    final target = _normalizeBs(widget.initialBsDate);
+    if (_selectedBs != null || target == null) {
       return;
     }
 
     final match = _calendar?.dates
         .where(
-          (d) => d.bsDate == widget.initialBsDate,
+          (d) => d.bsDate == target,
         )
         .firstOrNull;
 
@@ -434,6 +549,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     DateTime ad, {
     required bool announce,
     VoidCallback? refresh,
+    bool closeOnComplete = true,
   }) async {
     if (!mounted) return;
 
@@ -464,7 +580,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       if (widget.enableTime) {
         // Stay open — the user must pick a time before the dialog closes.
         refresh?.call();
-      } else {
+      } else if (closeOnComplete) {
         _closeDialog();
       }
     } catch (e) {
@@ -488,6 +604,79 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
         refresh?.call();
       }
+    }
+  }
+
+  /// Restores the end date of an existing range (update forms).
+  ///
+  /// The AD side is authoritative: an AD end date is converted
+  /// to BS, while a BS-only end date is looked up in its BS
+  /// month to obtain the matching AD date.
+  Future<void> _resolveInitialRangeEnd({
+    VoidCallback? refresh,
+  }) async {
+    if (!widget.enableRange) return;
+
+    // An end date without a start date is meaningless.
+    if (_selectedBs == null || _selectedAd == null) return;
+
+    final bsEnd = _normalizeBs(widget.initialBsEndDate);
+    final adEnd = widget.initialAdEndDate;
+    if (bsEnd == null && adEnd == null) return;
+
+    if (bsEnd != null && adEnd != null) {
+      // Both sides provided — trust them as-is.
+      if (!mounted) return;
+
+      setState(() {
+        _selectedBsEnd = bsEnd;
+        _selectedAdEnd = _isoOf(adEnd);
+      });
+      refresh?.call();
+      return;
+    }
+
+    if (adEnd != null) {
+      try {
+        final r = await _adService.convert(adEnd);
+        if (!mounted) return;
+
+        setState(() {
+          _selectedBsEnd = r.bsDate;
+          _selectedAdEnd = r.adDate;
+        });
+      } catch (_) {
+        // The range end stays unset; the user can pick it manually.
+        return;
+      }
+      refresh?.call();
+      return;
+    }
+
+    // BS-only end date → resolve its AD date from the BS month.
+    final parts = _parseBs(bsEnd)!;
+
+    try {
+      final month = await _service.getMonth(
+        year: parts[0],
+        month: parts[1],
+      );
+
+      if (!mounted) return;
+
+      final match = month.dates
+          .where((d) => d.bsDate == bsEnd)
+          .firstOrNull;
+
+      if (match == null) return;
+
+      setState(() {
+        _selectedBsEnd = match.bsDate;
+        _selectedAdEnd = match.adDate;
+      });
+      refresh?.call();
+    } catch (_) {
+      // The range end stays unset; the user can pick it manually.
     }
   }
 
@@ -647,12 +836,17 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
     if (!mounted) return;
 
+    // In range mode the callback is emitted only after both dates and both
+    // times are available. In single-date mode it is emitted after the
+    // single selected time is available.
     _emit();
 
-    // Time confirmed → close the dialog automatically. In range+time mode
-    // wait until the end time is chosen before closing.
-    if (widget.enableTime &&
-        !(widget.enableRange && !end && _selectedEndTime == null)) {
+    if (!widget.enableRange && !end) {
+      _closeDialog();
+    } else if (widget.enableRange &&
+        end &&
+        _selectedTime != null &&
+        _selectedEndTime != null) {
       _closeDialog();
     }
   }
@@ -670,6 +864,10 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     setState(() {
       _selectedBs = day.bsDate;
       _selectedAd = day.adDate;
+      _selectedBsEnd = null;
+      _selectedAdEnd = null;
+      _selectedTime = null;
+      _selectedEndTime = null;
     });
     _emit();
     if (widget.enableTime) {
@@ -688,12 +886,16 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         _selectedAd = day.adDate;
         _selectedBsEnd = null;
         _selectedAdEnd = null;
+        _selectedTime = null;
+        _selectedEndTime = null;
       } else if (day.adDateTime.isBefore(DateTime.parse(_selectedAd!))) {
         // Tapped before the start → restart with this day.
         _selectedBs = day.bsDate;
         _selectedAd = day.adDate;
         _selectedBsEnd = null;
         _selectedAdEnd = null;
+        _selectedTime = null;
+        _selectedEndTime = null;
       } else {
         _selectedBsEnd = day.bsDate;
         _selectedAdEnd = day.adDate;
@@ -721,6 +923,13 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       return;
     }
 
+    setState(() {
+      _selectedBsEnd = null;
+      _selectedAdEnd = null;
+      _selectedTime = null;
+      _selectedEndTime = null;
+    });
+
     _convertAndSelect(
       date,
       announce: true,
@@ -735,6 +944,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         _selectedAdEnd = null;
         _selectedBs = null; // filled after conversion
         _selectedBsEnd = null;
+        _selectedTime = null;
+        _selectedEndTime = null;
       });
       _dialogRefresh?.call();
       _convertStartOnly(date);
@@ -748,6 +959,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
         _selectedAdEnd = null;
         _selectedBs = null;
         _selectedBsEnd = null;
+        _selectedTime = null;
+        _selectedEndTime = null;
       });
       _dialogRefresh?.call();
       _convertStartOnly(date);
@@ -833,18 +1046,40 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     _loadMonth(refreshDialog);
   }
 
+  /// Emits only a complete selection.
+  ///
+  /// Supported combinations:
+  /// 1. Single date only       → BS + AD
+  /// 2. Date range only        → start/end BS + AD
+  /// 3. Single date + time     → BS + AD + time
+  /// 4. Date range + time      → start/end BS + AD + start/end time
   void _emit() {
     final bs = _selectedBs;
     final ad = _selectedAd;
     if (bs == null || ad == null) return;
+
+    final isRange = widget.enableRange;
+    final hasRangeDates = _selectedBsEnd != null && _selectedAdEnd != null;
+
+    // Range mode is not complete until both end-date values have been
+    // resolved. This is especially important for AD selection because the
+    // BS end date is obtained asynchronously from the API.
+    if (isRange && !hasRangeDates) return;
+
+    // When time is enabled, the start time is required.
+    if (widget.enableTime && _selectedTime == null) return;
+
+    // A range with time requires both start and end times.
+    if (isRange && widget.enableTime && _selectedEndTime == null) return;
+
     widget.onChanged(
       NepaliDateValue(
         bsDate: bs,
         adDate: ad,
-        bsEndDate: widget.enableRange ? _selectedBsEnd : null,
-        adEndDate: widget.enableRange ? _selectedAdEnd : null,
-        time: _selectedTime == null ? null : _formatTime(_selectedTime!),
-        endTime: widget.enableRange && _selectedEndTime != null
+        bsEndDate: isRange ? _selectedBsEnd : null,
+        adEndDate: isRange ? _selectedAdEnd : null,
+        time: widget.enableTime ? _formatTime(_selectedTime!) : null,
+        endTime: isRange && widget.enableTime
             ? _formatTime(_selectedEndTime!)
             : null,
       ),
@@ -1901,3 +2136,4 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+
