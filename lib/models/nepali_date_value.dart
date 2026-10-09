@@ -1,4 +1,4 @@
-enum SelectionType { date, month, year }
+// enum SelectionType { date, month, year }
 
 class NepaliDateValue {
   final String bsDate;
@@ -7,7 +7,7 @@ class NepaliDateValue {
   final String? adEndDate;
   final String? time;
   final String? endTime;
-  final SelectionType selectionType;
+  // final SelectionType selectionType;
 
   const NepaliDateValue({
     required this.bsDate,
@@ -16,7 +16,7 @@ class NepaliDateValue {
     this.adEndDate,
     this.time,
     this.endTime,
-    this.selectionType = SelectionType.date,
+    // this.selectionType = SelectionType.date,
   });
 
   bool get isRange => bsEndDate != null && adEndDate != null;
@@ -28,13 +28,13 @@ class NepaliDateValue {
         if (adEndDate != null) 'adEndDate': adEndDate,
         if (time != null) 'time': time,
         if (endTime != null) 'endTime': endTime,
-        'selectionType': selectionType.name,
+        // 'selectionType': selectionType.name,
       };
 
   @override
   String toString() =>
       'BS: $bsDate${bsEndDate != null ? ' → $bsEndDate' : ''} | '
       'AD: $adDate${adEndDate != null ? ' → $adEndDate' : ''} | '
-      'Time: ${time ?? '-'}${endTime != null ? ' → $endTime' : ''} | '
-      'Type: ${selectionType.name}';
+      'Time: ${time ?? '-'}${endTime != null ? ' → $endTime' : ''} ';
+  // 'Type: ${selectionType.name}';
 }

@@ -12,7 +12,7 @@ void main() {
       expect(value.bsDate, '2083-06-14');
       expect(value.adDate, '2026-10-01');
       expect(value.time, isNull);
-      expect(value.selectionType, SelectionType.date);
+      expect(value.isRange, isFalse);
     });
 
     test('stores time', () {
@@ -25,27 +25,30 @@ void main() {
       expect(value.time, '10:30 AM');
     });
 
-    test('supports month selection', () {
+    test('supports range values', () {
       const value = NepaliDateValue(
-        bsDate: '2083-06',
-        adDate: '2026-10',
-        selectionType: SelectionType.month,
+        bsDate: '2083-06-14',
+        adDate: '2026-10-01',
+        bsEndDate: '2083-06-20',
+        adEndDate: '2026-10-07',
       );
 
-      expect(value.selectionType, SelectionType.month);
+      expect(value.isRange, isTrue);
+      expect(value.bsEndDate, '2083-06-20');
+      expect(value.adEndDate, '2026-10-07');
     });
 
-    test('supports year selection', () {
+    test('range requires both end dates', () {
       const value = NepaliDateValue(
-        bsDate: '2083',
-        adDate: '2026',
-        selectionType: SelectionType.year,
+        bsDate: '2083-06-14',
+        adDate: '2026-10-01',
+        bsEndDate: '2083-06-20',
       );
 
-      expect(value.selectionType, SelectionType.year);
+      expect(value.isRange, isFalse);
     });
 
-    test('toJson excludes null time', () {
+    test('toJson excludes null fields', () {
       const value = NepaliDateValue(
         bsDate: '2083-06-14',
         adDate: '2026-10-01',
@@ -56,16 +59,18 @@ void main() {
         {
           'bsDate': '2083-06-14',
           'adDate': '2026-10-01',
-          'selectionType': 'date',
         },
       );
     });
 
-    test('toJson includes time when available', () {
+    test('toJson includes time and range when available', () {
       const value = NepaliDateValue(
         bsDate: '2083-06-14',
         adDate: '2026-10-01',
+        bsEndDate: '2083-06-20',
+        adEndDate: '2026-10-07',
         time: '10:30 AM',
+        endTime: '6:45 PM',
       );
 
       expect(
@@ -73,8 +78,10 @@ void main() {
         {
           'bsDate': '2083-06-14',
           'adDate': '2026-10-01',
+          'bsEndDate': '2083-06-20',
+          'adEndDate': '2026-10-07',
           'time': '10:30 AM',
-          'selectionType': 'date',
+          'endTime': '6:45 PM',
         },
       );
     });
@@ -87,7 +94,25 @@ void main() {
 
       expect(
         value.toString(),
-        'BS: 2083-06-14 | AD: 2026-10-01 | Time: - | Type: date',
+        'BS: 2083-06-14 | AD: 2026-10-01 | Time: - ',
+      );
+    });
+
+    test('toString includes range and time', () {
+      const value = NepaliDateValue(
+        bsDate: '2083-06-14',
+        adDate: '2026-10-01',
+        bsEndDate: '2083-06-20',
+        adEndDate: '2026-10-07',
+        time: '10:30 AM',
+        endTime: '6:45 PM',
+      );
+
+      expect(
+        value.toString(),
+        'BS: 2083-06-14 → 2083-06-20 | '
+        'AD: 2026-10-01 → 2026-10-07 | '
+        'Time: 10:30 AM → 6:45 PM ',
       );
     });
   });

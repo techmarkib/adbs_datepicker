@@ -63,6 +63,7 @@ The same picker can switch between BS and AD without opening a separate componen
 - Long-press a day to view its events
 - Matching AD day displayed inside BS calendar cells
 - **Date range selection**
+- **Restores existing values** — initial date, range and time (update/edit forms)
 - Minimum and maximum selectable date limits
 - **12-hour and 24-hour time selection**
 - Month picker
@@ -207,6 +208,7 @@ NepaliDatePicker(
   style: NepaliDatePickerStyle.filled,
   themeColor: Colors.teal,
   initialBsDate: '2083-06-14',
+  initialTime: const TimeOfDay(hour: 10, minute: 30),
   firstAdDate: DateTime(2026, 1, 1),
   lastAdDate: DateTime(2027, 12, 31),
   enableTime: true,
@@ -218,6 +220,79 @@ NepaliDatePicker(
   },
 )
 ```
+
+---
+
+# Restoring Existing Values (Update Forms)
+
+The picker fully supports pre-filling an already-saved value — for example when editing an existing record. The trigger shows the restored value instead of the hint, and the calendar opens on the restored month with the restored day highlighted.
+
+## Initial date
+
+```dart
+NepaliDatePicker(
+  // Existing value from your model (either calendar works):
+  initialBsDate: existing.bsDate,   // e.g. '2083-06-14'
+  initialAdDate: existing.adDate,   // e.g. DateTime(2026, 10, 1)
+  onChanged: (value) {
+    // Called only after an actual user selection.
+  },
+)
+```
+
+- **Either calendar is accepted.** A stored BS date (`initialBsDate`) or a stored AD date (`initialAdDate`) is restored regardless of the `displayFormat`. AD values are converted through the AD → BS API.
+- **Compact input works too.** `'2083-6-14'` is normalized to `'2083-06-14'`.
+
+## Initial time
+
+When `enableTime` is on, a saved time can be restored with `initialTime` (and `initialEndTime` for ranges). The restored time is shown in the trigger and pre-fills the time field inside the dialog:
+
+```dart
+NepaliDatePicker(
+  enableTime: true,
+  timeFormat: '12', // or '24'
+  initialBsDate: '2083-06-14',
+  initialTime: const TimeOfDay(hour: 10, minute: 30),
+  onChanged: (value) {
+    print(value.time); // '10:30 AM'
+  },
+)
+```
+
+The restored time is displayed using the configured `timeFormat`:
+
+- `timeFormat: '12'` → `10:30 AM`
+- `timeFormat: '24'` → `10:30`
+
+## Initial range
+
+Ranges are restored with `initialBsEndDate` / `initialAdEndDate` (requires `enableRange`). The end date may come from either calendar — an AD end date is converted through the API, a BS-only end date is resolved from the BS calendar:
+
+```dart
+NepaliDatePicker(
+  enableRange: true,
+  enableTime: true,
+  initialBsDate: '2083-06-14',
+  initialBsEndDate: '2083-06-20',
+  initialTime: const TimeOfDay(hour: 10, minute: 30),
+  initialEndTime: const TimeOfDay(hour: 18, minute: 45),
+  onChanged: (value) {
+    debugPrint(value.toString());
+  },
+)
+```
+
+Displayed in the trigger as:
+
+```text
+2083-06-14 (2026-10-01)  →  2083-06-20 (2026-10-07)  •  10:30 AM – 6:45 PM
+```
+
+## Automatic re-sync
+
+Restoring a value **does not** call `onChanged` — it fires only for real user selections.
+
+When the parent rebuilds the picker with a different initial value (e.g. the form loads another record), the picker re-syncs automatically via `didUpdateWidget`.
 
 ---
 
@@ -440,6 +515,8 @@ Example:
 
 The time picker uses Flutter's standard time picker interface.
 
+A saved time can be pre-filled using `initialTime` (and `initialEndTime` in range mode) — see [Restoring Existing Values (Update Forms)](#restoring-existing-values-update-forms).
+
 ## 12-Hour Format
 
 ```dart
@@ -608,6 +685,10 @@ A custom `triggerBuilder` remains completely under your control.
 | `hint`             | `String`                        | `'Select date'` | Displayed when no date is selected     |
 | `initialBsDate`    | `String?`                       | `null`          | Initial BS date in `YYYY-MM-DD`        |
 | `initialAdDate`    | `DateTime?`                     | `null`          | Initial AD date                        |
+| `initialBsEndDate` | `String?`                       | `null`          | Initial BS end date (requires `enableRange`) |
+| `initialAdEndDate` | `DateTime?`                     | `null`          | Initial AD end date (requires `enableRange`) |
+| `initialTime`      | `TimeOfDay?`                    | `null`          | Pre-selected start time (requires `enableTime`) |
+| `initialEndTime`   | `TimeOfDay?`                    | `null`          | Pre-selected end time (requires `enableTime` + `enableRange`) |
 | `displayFormat`    | `NepaliDateDisplayFormat`       | `bsWithAd`      | Display format and initial calendar    |
 | `style`            | `NepaliDatePickerStyle`         | `standard`      | Built-in trigger style                 |
 | `themeColor`       | `Color?`                        | App primary     | Picker accent color                    |
@@ -715,6 +796,10 @@ This automatic selection does **not** trigger `onChanged`.
 ### Initial AD selection
 
 When the picker opens on AD and no initial date is provided, the field displays the configured `hint`.
+
+### Existing values (update forms)
+
+When `initialBsDate` and/or `initialAdDate` is provided, the value is restored into the trigger — even when the picker is later rebuilt with a different value (edit forms). See [Restoring Existing Values (Update Forms)](#restoring-existing-values-update-forms).
 
 ### Date selection
 
