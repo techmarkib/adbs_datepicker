@@ -296,8 +296,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       _mode = widget.displayFormat.calendarMode;
     }
 
-    final valuesChanged =
-        oldWidget.initialBsDate != widget.initialBsDate ||
+    final valuesChanged = oldWidget.initialBsDate != widget.initialBsDate ||
         oldWidget.initialAdDate != widget.initialAdDate ||
         oldWidget.initialBsEndDate != widget.initialBsEndDate ||
         oldWidget.initialAdEndDate != widget.initialAdEndDate ||
@@ -455,57 +454,37 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     await _loadMonth(refresh);
   }
 
+  /// Rebuilds the dialog (if open) using the CURRENT refresh callback.
+  void _notifyDialog() {
+    if (!_dialogOpen || !mounted) return;
+    _dialogRefresh?.call();
+  }
   // ── BS data loading ─────────────────────────────────────────────────
 
   Future<void> _loadMonth([VoidCallback? refreshDialog]) async {
-    void refreshDialogSafely() {
-      if (!_dialogOpen || !mounted) return;
-
-      refreshDialog?.call();
-    }
+    void refreshDialogSafely() => _notifyDialog();
 
     if (!mounted) return;
-
     setState(() {
       _loading = true;
       _error = null;
     });
-
     refreshDialogSafely();
 
     try {
-      final month = await _service.getMonth(
-        year: _year,
-        month: _month,
-      );
-
-      // The date picker may have been removed while the API was loading.
+      final month = await _service.getMonth(year: _year, month: _month);
       if (!mounted) return;
-
-      setState(() {
-        _calendar = month;
-      });
-
+      setState(() => _calendar = month);
       refreshDialogSafely();
-
       if (!mounted) return;
-
       _selectInitialDayIfNeeded();
     } catch (e) {
       if (!mounted) return;
-
-      setState(() {
-        _error = e.toString();
-      });
-
+      setState(() => _error = e.toString());
       refreshDialogSafely();
     } finally {
-      // No `return` inside finally (it can swallow exceptions).
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-
+        setState(() => _loading = false);
         refreshDialogSafely();
       }
     }
@@ -555,6 +534,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
     setState(() {
       _converting = true;
+      _notifyDialog();
     });
 
     refresh?.call();
@@ -570,7 +550,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       });
 
       refresh?.call();
-
+      _notifyDialog();
       if (!mounted) return;
 
       if (announce) {
@@ -580,6 +560,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       if (widget.enableTime) {
         // Stay open — the user must pick a time before the dialog closes.
         refresh?.call();
+        _notifyDialog();
       } else if (closeOnComplete) {
         _closeDialog();
       }
@@ -600,6 +581,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
       if (mounted) {
         setState(() {
           _converting = false;
+          _notifyDialog();
         });
 
         refresh?.call();
@@ -664,9 +646,7 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 
       if (!mounted) return;
 
-      final match = month.dates
-          .where((d) => d.bsDate == bsEnd)
-          .firstOrNull;
+      final match = month.dates.where((d) => d.bsDate == bsEnd).firstOrNull;
 
       if (match == null) return;
 
@@ -1210,8 +1190,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              suffixIcon:
-                  Icon(widget.icon ?? Icons.calendar_month, color: widget.themeColor),
+              suffixIcon: Icon(widget.icon ?? Icons.calendar_month,
+                  color: widget.themeColor),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
@@ -1234,8 +1214,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
-              suffixIcon:
-                  Icon(widget.icon ?? Icons.calendar_month, color: widget.themeColor),
+              suffixIcon: Icon(widget.icon ?? Icons.calendar_month,
+                  color: widget.themeColor),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
@@ -1257,7 +1237,8 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
             ),
             child: Row(
               children: [
-                Icon(widget.icon ?? Icons.event_outlined, color: widget.themeColor),
+                Icon(widget.icon ?? Icons.event_outlined,
+                    color: widget.themeColor),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1283,7 +1264,9 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: widget.themeColor == null ? cs.secondaryContainer : _rangeColor,
+                color: widget.themeColor == null
+                    ? cs.secondaryContainer
+                    : _rangeColor,
                 borderRadius: BorderRadius.circular(50),
               ),
               child: Row(
@@ -2136,4 +2119,3 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-
