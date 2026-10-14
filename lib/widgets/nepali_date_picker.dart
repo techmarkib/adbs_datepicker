@@ -111,6 +111,12 @@ class NepaliDatePicker extends StatefulWidget {
   final AdToBsService? adService;
 
   final NepaliDateDisplayFormat displayFormat;
+
+  /// Optional custom text for the trigger. Receives zero-padded
+  /// `YYYY-MM-DD` strings for BS and AD. Overrides how [displayFormat]
+  /// renders the text; [displayFormat] still controls which calendar opens.
+  final String Function(String bs, String ad)? displayFormatter;
+
   final NepaliDatePickerStyle style;
 
   /// Accent color for the picker, including the BS/AD toggle, today ring,
@@ -147,6 +153,7 @@ class NepaliDatePicker extends StatefulWidget {
     this.service,
     this.adService,
     this.displayFormat = NepaliDateDisplayFormat.bsWithAd,
+    this.displayFormatter,
     this.style = NepaliDatePickerStyle.standard,
     this.themeColor,
     this.icon,
@@ -270,7 +277,20 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     '९',
   ];
 
-  // ── Lifecycle ───────────────────────────────────────────────────────
+// sample example for custom formatter
+//
+// String _toNepaliDigits(String s) => s.split('').map((c) {
+//       final i = int.tryParse(c);
+//       return i != null ? _nepaliDigits[i] : c;
+//     }).join();
+
+// /// `2083-06-02` + `2026-09-18`  `2083 असोज 02 | 2026 Sep 18 `
+// String formatBsAd(String bs, String ad) {
+//   final b = bs.split('-'); // [year, month, day]
+//   final a = ad.split('-');
+//   return ' ${_nepaliMonths[int.parse(b[1]) - 1]} ${_toNepaliDigits(b[2])}, ${_toNepaliDigits(b[0])}'
+//       ' | ${_englishMonths[int.parse(a[1]) - 1]} ${a[2]}, ${a[0]}';
+// }
 
   @override
   void initState() {
@@ -1112,7 +1132,9 @@ class _NepaliDatePickerState extends State<NepaliDatePicker> {
     final ad = _selectedAd;
     if (bs == null || ad == null) return null;
     final time = _selectedTime;
-    String fmt(String bs, String ad) => widget.displayFormat.format(bs, ad);
+    String fmt(String bs, String ad) =>
+        widget.displayFormatter?.call(bs, ad) ??
+        widget.displayFormat.format(bs, ad);
 
     String date = fmt(bs, ad);
     if (widget.enableRange &&
